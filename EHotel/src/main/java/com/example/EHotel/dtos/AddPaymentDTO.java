@@ -3,6 +3,8 @@ package com.example.EHotel.dtos;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.FutureOrPresent;
@@ -23,6 +25,7 @@ public class AddPaymentDTO {
 
     @NotNull(message = "La date est obligatoire")
     @FutureOrPresent(message = "La date du paiement ne peut pas être dans le passé")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate paymentDate = LocalDate.now();
 
     @NotBlank(message = "La méthode de paiement est obligatoire")

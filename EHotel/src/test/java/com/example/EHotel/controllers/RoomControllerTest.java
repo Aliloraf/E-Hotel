@@ -67,6 +67,14 @@ class RoomControllerTest {
     }
 
     @Test
+    void bookingFormKeepsTheSearchDatesInADateInputCompatibleFormat() throws Exception {
+        mvc.perform(get("/room/book/7").param("startDate", START).param("endDate", END))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("value=\"" + START + "\"")))
+                .andExpect(content().string(containsString("value=\"" + END + "\"")));
+    }
+
+    @Test
     void invalidBookingRedisplaysTheFormWithErrors() throws Exception {
         mvc.perform(post("/room/booking")
                         .param("idRoom", "7")

@@ -4,6 +4,8 @@ import static com.example.EHotel.dtos.ValidationPatterns.*;
 
 import java.time.LocalDate;
 
+import org.springframework.format.annotation.DateTimeFormat;
+
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotBlank;
@@ -56,9 +58,11 @@ public class BookingDTO {
 
     @NotNull(message = "La date d'arrivée est obligatoire")
     @FutureOrPresent(message = "La date d'arrivée ne peut pas être dans le passé")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate startDate;
 
     @NotNull(message = "La date de départ est obligatoire")
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate endDate;
 
     @AssertTrue(message = "La date de départ doit être après la date d'arrivée")
