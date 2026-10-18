@@ -8,8 +8,6 @@ It is a server-rendered Spring Boot application on top of a PostgreSQL schema th
 the domain logic itself (constraints, triggers, archive tables and views). It was originally built as
 a university group project. The user interface is in French.
 
-![Room search](docs/screenshots/search.png)
-
 ## Features
 
 **Customers**
