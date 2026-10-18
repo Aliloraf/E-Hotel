@@ -146,12 +146,6 @@ as they are in production. The first run downloads the PostgreSQL binaries.
 
 GitHub Actions runs the same suite on every push (`.github/workflows/ci.yml`).
 
-## Screenshots
-
-| Booking form with validation errors | Bookings awaiting check-in |
-|---|---|
-| ![Booking form](docs/screenshots/booking-validation.png) | ![Bookings](docs/screenshots/bookings.png) |
-
 ## Known limitations
 
 - **No authentication.** The customer, employee and manager areas are separate pages, but anyone can
