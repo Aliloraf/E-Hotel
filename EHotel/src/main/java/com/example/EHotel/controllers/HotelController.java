@@ -1,130 +1,83 @@
 package com.example.EHotel.controllers;
 
-import java.util.List;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.EHotel.dtos.CreateHotelDTO;
-import com.example.EHotel.model.employee.Employee;
-import com.example.EHotel.model.hotel.Hotel;
-import com.example.EHotel.model.hotelchain.HotelChain;
 import com.example.EHotel.services.EmployeeService;
 import com.example.EHotel.services.HotelChainService;
 import com.example.EHotel.services.HotelService;
 
-import org.springframework.ui.Model;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @Controller
 @RequestMapping("/hotel")
+@RequiredArgsConstructor
 public class HotelController {
-    
-    @Autowired
-    private HotelService hotelService;
-    @Autowired
-    private HotelChainService hotelChainService;
-    @Autowired
-    private EmployeeService employeeService;
+
+    private final HotelService hotelService;
+    private final HotelChainService hotelChainService;
+    private final EmployeeService employeeService;
 
     @GetMapping("/hotels")
-    public String showsHotels(Model model) {
-        List<Hotel> hotels = hotelService.getHotels();
-        model.addAttribute("hotels", hotels);
+    public String showHotels(Model model) {
+        model.addAttribute("hotels", hotelService.getHotels());
         return "hotels";
     }
 
-    @GetMapping("/hotel/add")
+    @GetMapping("/add")
     public String showAddHotelForm(Model model) {
-        List<HotelChain> hotelChains = hotelChainService.getHotelChains();
-        List<Employee> employees = employeeService.getEmployees();
         model.addAttribute("hotel", new CreateHotelDTO());
-        model.addAttribute("hotelChains", hotelChains);
-        model.addAttribute("employees", employees);
-
-        return "add-hotel-form";
+        return hotelForm("add-hotel-form", model);
     }
 
-    @PostMapping("/hotel/add")
-    public String addHotel(@ModelAttribute("hotel") CreateHotelDTO hotel) {
-        Hotel newHotel = new Hotel();
-        HotelChain hotelChain = hotelChainService.getHotelChain(hotel.getIdHotelChain());
-        Employee manager = employeeService.getEmployee(hotel.getSinManager());
-
-        newHotel.setName(hotel.getName());
-        newHotel.setRoomsNumber(hotel.getRoomsNumber());
-        newHotel.setStartNumber(hotel.getStartNumber());
-        newHotel.setEmail(hotel.getEmail());
-        newHotel.setStreetName(hotel.getStreetName());
-        newHotel.setStreetNumber(hotel.getStreetNumber());
-        newHotel.setCity(hotel.getCity());
-        newHotel.setPostalCode(hotel.getPostalCode());
-        newHotel.setCountry(hotel.getCountry());
-        newHotel.setHotelChain(hotelChain);
-        newHotel.setManager(manager);
-
-        System.out.println(newHotel.getIdHotel());
-
-        hotelService.addHotel(newHotel);
-
-        
+    @PostMapping("/add")
+    public String addHotel(@Valid @ModelAttribute("hotel") CreateHotelDTO hotelDTO, BindingResult result,
+            Model model, RedirectAttributes redirect) {
+        if (result.hasErrors()) {
+            return hotelForm("add-hotel-form", model);
+        }
+        hotelService.addHotel(hotelDTO);
+        redirect.addFlashAttribute("success", "Hôtel ajouté.");
         return "redirect:/hotel/hotels";
     }
 
-    @GetMapping("/hotel/delete/{id}")
-    public String deleteHotel(@ModelAttribute("id") int id) {
+    @PostMapping("/delete/{id}")
+    public String deleteHotel(@PathVariable("id") int id, RedirectAttributes redirect) {
         hotelService.deleteHotel(id);
+        redirect.addFlashAttribute("success", "Hôtel supprimé.");
         return "redirect:/hotel/hotels";
     }
 
-    @GetMapping("/hotel/update/{id}")
-    public String showUpdateHotelForm(@ModelAttribute("id") int id, Model model) {
-        Hotel existingHotel = hotelService.getHotel(id);
-        CreateHotelDTO hotelDTO = new CreateHotelDTO();
-
-        hotelDTO.setIdHotel(existingHotel.getIdHotel());
-        hotelDTO.setName(existingHotel.getName());
-        hotelDTO.setRoomsNumber(existingHotel.getRoomsNumber());
-        hotelDTO.setStartNumber(existingHotel.getStartNumber());
-        hotelDTO.setEmail(existingHotel.getEmail());
-        hotelDTO.setStreetName(existingHotel.getStreetName());
-        hotelDTO.setCity(existingHotel.getCity());
-        hotelDTO.setPostalCode(existingHotel.getPostalCode());
-        hotelDTO.setCountry(existingHotel.getCountry());
-        hotelDTO.setIdHotelChain(existingHotel.getHotelChain().getId());
-        hotelDTO.setSinManager(existingHotel.getManager().getSinEmployee());
-
-        List<HotelChain> hotelChains = hotelChainService.getHotelChains();
-        List<Employee> employees = employeeService.getEmployees();
-        model.addAttribute("hotel", hotelDTO);
-        model.addAttribute("hotelChains", hotelChains);
-        model.addAttribute("employees", employees);
-
-        return "update-hotel-form";
+    @GetMapping("/update/{id}")
+    public String showUpdateHotelForm(@PathVariable("id") int id, Model model) {
+        model.addAttribute("hotel", hotelService.toDto(hotelService.getHotel(id)));
+        return hotelForm("update-hotel-form", model);
     }
 
-    @PostMapping("/hotel/update/{id}")
-    public String updateHotel(@ModelAttribute("id") int id, @ModelAttribute("hotel") CreateHotelDTO hotel) {
-        Hotel updatedHotel = hotelService.getHotel(id);
-        HotelChain hotelChain = hotelChainService.getHotelChain(hotel.getIdHotelChain());
-        Employee manager = employeeService.getEmployee(hotel.getSinManager());
-
-        updatedHotel.setName(hotel.getName());
-        updatedHotel.setRoomsNumber(hotel.getRoomsNumber());
-        updatedHotel.setStartNumber(hotel.getStartNumber());
-        updatedHotel.setEmail(hotel.getEmail());
-        updatedHotel.setStreetName(hotel.getStreetName());
-        updatedHotel.setCity(hotel.getCity());
-        updatedHotel.setPostalCode(hotel.getPostalCode());
-        updatedHotel.setCountry(hotel.getCountry());
-        updatedHotel.setHotelChain(hotelChain);
-        updatedHotel.setManager(manager);
-
-        hotelService.updateHotel(updatedHotel);
+    @PostMapping("/update/{id}")
+    public String updateHotel(@PathVariable("id") int id, @Valid @ModelAttribute("hotel") CreateHotelDTO hotelDTO,
+            BindingResult result, Model model, RedirectAttributes redirect) {
+        hotelDTO.setIdHotel(id);
+        if (result.hasErrors()) {
+            return hotelForm("update-hotel-form", model);
+        }
+        hotelService.updateHotel(id, hotelDTO);
+        redirect.addFlashAttribute("success", "Hôtel modifié.");
         return "redirect:/hotel/hotels";
     }
-    
 
+    private String hotelForm(String view, Model model) {
+        model.addAttribute("hotelChains", hotelChainService.getHotelChains());
+        model.addAttribute("managers", employeeService.getManagers());
+        return view;
+    }
 }

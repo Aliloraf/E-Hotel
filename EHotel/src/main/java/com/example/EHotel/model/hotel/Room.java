@@ -1,5 +1,7 @@
 package com.example.EHotel.model.hotel;
 
+import java.math.BigDecimal;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -21,7 +23,7 @@ import lombok.Setter;
 @Table(name = "room")
 public class Room {
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_room")
     private Integer idRoom;
     
@@ -31,8 +33,8 @@ public class Room {
     @Column(name = "availability", nullable = false)
     private Boolean availability;
     
-    @Column(name = "price", nullable = false)
-    private Double price;
+    @Column(name = "price", nullable = false, precision = 8, scale = 2)
+    private BigDecimal price;
     
     @Column(name = "view", nullable = false)
     private String view;

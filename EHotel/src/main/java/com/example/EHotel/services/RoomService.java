@@ -1,66 +1,75 @@
 package com.example.EHotel.services;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.List;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.example.EHotel.dtos.CreateRoomDTO;
 import com.example.EHotel.dtos.RoomSearchCriteriaDTO;
+import com.example.EHotel.exceptions.ResourceNotFoundException;
 import com.example.EHotel.model.hotel.Room;
 import com.example.EHotel.repositories.hotel.RoomRepository;
 
-import jakarta.transaction.Transactional;
-
-import java.util.List;
-import org.springframework.data.domain.Sort;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @Transactional
+@RequiredArgsConstructor
 public class RoomService {
 
     private final RoomRepository roomRepository;
+    private final HotelService hotelService;
 
-    @Autowired
-    public RoomService(RoomRepository roomRepository) {
-        this.roomRepository = roomRepository;
-    }
-
+    @Transactional(readOnly = true)
     public List<Room> findAvailableRooms(RoomSearchCriteriaDTO criteria) {
         return roomRepository.findAvailableRooms(criteria);
     }
 
-    public Room findRoomById(int id) {
-        return roomRepository.findById(id).orElse(null);
+    @Transactional(readOnly = true)
+    public Room getRoom(int id) {
+        return roomRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Chambre introuvable : " + id));
     }
 
+    @Transactional(readOnly = true)
     public List<Room> findRoomsByHotelId(int hotelId) {
         return roomRepository.findByHotelId(hotelId);
     }
 
-    @SuppressWarnings("null")
-    public Room saveRoom(Room room) {
-        return roomRepository.save(room);
-    }
-    
-    public void deleteRoom(int id) {
-        roomRepository.deleteById(id);
-    }
-
-    @SuppressWarnings("null")
-    public Room updateRoom(Room room) {
+    public Room addRoom(CreateRoomDTO dto) {
+        Room room = new Room();
+        room.setHotel(hotelService.getHotel(dto.getIdHotel()));
+        copyFields(dto, room);
         return roomRepository.save(room);
     }
 
-    public List<Room> findAllRooms() {
-        return roomRepository.findAll();
+    /** Updates a room's attributes. The hotel of an existing room cannot be changed. */
+    public Room updateRoom(int id, CreateRoomDTO dto) {
+        Room room = getRoom(id);
+        copyFields(dto, room);
+        return roomRepository.save(room);
     }
 
-    public Integer findUnusedId() {
-        List<Room> rooms = roomRepository.findAll(Sort.by("idRoom"));
-        if (!rooms.isEmpty()) {
-            int expectedId = rooms.get(rooms.size() - 1).getIdRoom() + 1;
-            return expectedId;
-        } else {
-            return 1;
-        }
+    /** Deletes a room and returns the id of the hotel it belonged to. Its bookings and rentals are cascaded. */
+    public int deleteRoom(int id) {
+        Room room = getRoom(id);
+        int hotelId = room.getHotel().getIdHotel();
+        roomRepository.delete(room);
+        roomRepository.flush();
+        return hotelId;
+    }
+
+    public CreateRoomDTO toDto(Room room) {
+        return new CreateRoomDTO(room.getIdRoom(), room.getRoomNumber(), room.getAvailability(), room.getPrice(),
+                room.getView(), room.getExtensible(), room.getCapacity(), room.getHotel().getIdHotel());
+    }
+
+    private void copyFields(CreateRoomDTO dto, Room room) {
+        room.setRoomNumber(dto.getRoomNumber());
+        room.setAvailability(dto.getAvailability());
+        room.setPrice(dto.getPrice());
+        room.setView(dto.getView());
+        room.setExtensible(dto.getExtensible());
+        room.setCapacity(dto.getCapacity());
     }
 }
-

@@ -26,7 +26,7 @@ import lombok.Setter;
 public class Hotel {
     
     @Id
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_hotel")
     private Integer idHotel;
     

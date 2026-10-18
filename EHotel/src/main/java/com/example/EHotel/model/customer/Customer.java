@@ -52,7 +52,6 @@ public class Customer {
         this.sinCustomer = customer.getSinCustomer();
         this.firstname = customer.getFirstname();
         this.lastname = customer.getLastname();
-        this.checkInDate = customer.getCheckInDate();
         this.streetNumber = customer.getStreetNumber();
         this.streetName = customer.getStreetName();
         this.city = customer.getCity();
