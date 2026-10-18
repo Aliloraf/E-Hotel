@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS hotel(
     country VARCHAR(255) NOT NULL, 
     id_hotel_chain INTEGER NOT NULL,
     PRIMARY KEY(id_hotel),
-    FOREIGN KEY (id_hotel_chain) REFERENCES hotel_chain(id_hotel_chain),
+    FOREIGN KEY (id_hotel_chain) REFERENCES hotel_chain(id_hotel_chain) ON DELETE CASCADE,
     CONSTRAINT chk_postal_code_format CHECK (
         postal_code ~* '^\d{5}(-\d{4})?$' -- US ZIP code format
         OR postal_code ~* '^[ABCEGHJKLMNPRSTVXY]{1}\d{1}[A-Z]{1} *\d{1}[A-Z]{1}\d{1}$' -- Canadian postal code format
@@ -163,7 +163,7 @@ CREATE TABLE IF NOT EXISTS room(
     capacity VARCHAR(255) NOT NULL,
     id_hotel INTEGER NOT NULL,
     PRIMARY KEY (id_room),
-    FOREIGN KEY (id_hotel) REFERENCES hotel(id_hotel),
+    FOREIGN KEY (id_hotel) REFERENCES hotel(id_hotel) ON DELETE CASCADE,
     CONSTRAINT chk_room_number CHECK (room_number >= 0),
     CONSTRAINT chk_price CHECK (price > 0),
     CONSTRAINT chk_capacity CHECK (capacity in ('Simple', 'Double', 'Triple', 'Quadruple', 'Suite', 'Penthouse')),
