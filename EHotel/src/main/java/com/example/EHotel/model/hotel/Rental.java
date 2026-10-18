@@ -28,7 +28,7 @@ public class Rental {
 
     @Id
     @Column(name = "id_rental")
-    @GeneratedValue(strategy = GenerationType.SEQUENCE)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer idRental;
 
     @ManyToOne

@@ -1,5 +1,6 @@
 package com.example.EHotel.model.hotel;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import jakarta.persistence.Column;
@@ -36,8 +37,8 @@ public class Payment {
     @Column(name = "payment_date", nullable = false)
     private LocalDate paymentDate;
     
-    @Column(name = "amount", nullable = false)
-    private Double amount;
+    @Column(name = "amount", nullable = false, precision = 8, scale = 2)
+    private BigDecimal amount;
     
     @Column(name = "payment_method", nullable = false)
     private String paymentMethod;

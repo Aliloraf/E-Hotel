@@ -1,174 +1,163 @@
 package com.example.EHotel.controllers;
 
+import java.time.LocalDate;
 import java.util.List;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.EHotel.dtos.BookingDTO;
 import com.example.EHotel.dtos.CreateRoomDTO;
-import com.example.EHotel.dtos.RoomSearchByIdHotel;
 import com.example.EHotel.dtos.RoomSearchCriteriaDTO;
-import com.example.EHotel.model.customer.Customer;
+import com.example.EHotel.exceptions.BusinessRuleException;
 import com.example.EHotel.model.hotel.Booking;
 import com.example.EHotel.model.hotel.Hotel;
 import com.example.EHotel.model.hotel.Room;
 import com.example.EHotel.services.BookingService;
-import com.example.EHotel.services.CustomerService;
+import com.example.EHotel.services.HotelChainService;
 import com.example.EHotel.services.HotelService;
 import com.example.EHotel.services.RoomService;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+
 @Controller
 @RequestMapping("/room")
+@RequiredArgsConstructor
 public class RoomController {
 
-    @Autowired
-    private RoomService roomService;
-    @Autowired
-    private CustomerService customerService;
-    @Autowired
-    private BookingService bookingService;
-    @Autowired
-    private HotelService hotelService;
+    private final RoomService roomService;
+    private final BookingService bookingService;
+    private final HotelService hotelService;
+    private final HotelChainService hotelChainService;
 
+    // --- Customer side: search and booking ---
 
     @GetMapping("/search")
     public String showSearchForm(Model model) {
-        model.addAttribute("criteria", new RoomSearchCriteriaDTO());
-        return "search";
+        RoomSearchCriteriaDTO criteria = new RoomSearchCriteriaDTO();
+        criteria.setStartDate(LocalDate.now());
+        criteria.setEndDate(LocalDate.now().plusDays(1));
+        model.addAttribute("criteria", criteria);
+        return searchForm(model);
     }
 
     @PostMapping("/search")
-    public String searchRooms(@ModelAttribute("criteria") RoomSearchCriteriaDTO criteria, Model model) {
-        List<Room> rooms = roomService.findAvailableRooms(criteria);
-        model.addAttribute("rooms", rooms);
-        return "search";
-    }
-
-    @GetMapping("/select/{id}")
-    public String selectRoom(@PathVariable("id") int id, Model model) {
-        return "redirect:/room/book/" + id;
+    public String searchRooms(@Valid @ModelAttribute("criteria") RoomSearchCriteriaDTO criteria,
+            BindingResult result, Model model) {
+        if (!result.hasErrors()) {
+            model.addAttribute("rooms", roomService.findAvailableRooms(criteria));
+        }
+        return searchForm(model);
     }
 
     @GetMapping("/book/{idRoom}")
-    public String showBookingForm(@PathVariable("idRoom") int idRoom, Model model) {
+    public String showBookingForm(@PathVariable("idRoom") int idRoom,
+            @RequestParam(name = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(name = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            Model model) {
         BookingDTO booking = new BookingDTO();
         booking.setIdRoom(idRoom);
+        booking.setStartDate(startDate);
+        booking.setEndDate(endDate);
         model.addAttribute("booking", booking);
+        model.addAttribute("room", roomService.getRoom(idRoom));
         return "booking-form";
     }
+
     @PostMapping("/booking")
-    public String bookRoom(@ModelAttribute("booking") BookingDTO bookingDTO) {
-
-        Customer existingCustomer = customerService.getCustomer(bookingDTO.getSinCustomer());
-
-        Customer customer = new Customer();
-
-        if (existingCustomer != null) {
-            customer = existingCustomer;
-        }else {
-            customer = new Customer(
-                bookingDTO.getSinCustomer(),
-                bookingDTO.getFirstname(),
-                bookingDTO.getLastname(),
-                bookingDTO.getCheckInDate(),
-                bookingDTO.getStreetNumber(),
-                bookingDTO.getStreetName(),
-                bookingDTO.getCity(),
-                bookingDTO.getPostalCode(),
-                bookingDTO.getCountry()
-            );
-            customerService.addCustomer(customer);
+    public String bookRoom(@Valid @ModelAttribute("booking") BookingDTO bookingDTO, BindingResult result,
+            Model model, RedirectAttributes redirect) {
+        if (!result.hasErrors()) {
+            try {
+                Booking booking = bookingService.createBooking(bookingDTO);
+                redirect.addFlashAttribute("success", "Réservation n° " + booking.getIdBooking() + " confirmée.");
+                return "redirect:/room/search";
+            } catch (BusinessRuleException e) {
+                result.reject("booking", e.getMessage());
+            }
         }
-
-        Room room = roomService.findRoomById(bookingDTO.getIdRoom());
-
-        Booking booking = new Booking(
-            customer,
-            room,
-            bookingDTO.getStartDate(),
-            bookingDTO.getEndDate()
-        );
-
-
-        bookingService.addBooking(booking);
-
-
-        return "redirect:/room/search";
+        model.addAttribute("room", roomService.getRoom(bookingDTO.getIdRoom()));
+        return "booking-form";
     }
 
-    @GetMapping("/list/{idHotel}")
-    public String listRooms(@PathVariable("idHotel")  int idHotel ,Model model) {
-        List<Room> rooms = roomService.findRoomsByHotelId(idHotel);
+    // --- Manager side: room management ---
+
+    @GetMapping("/list")
+    public String listRooms(@RequestParam(name = "hotelId", required = false) Integer hotelId, Model model) {
         List<Hotel> hotels = hotelService.getHotels();
-        RoomSearchByIdHotel roomSearch = new RoomSearchByIdHotel(); 
-        model.addAttribute("rooms", rooms);
+        if (hotelId == null && !hotels.isEmpty()) {
+            hotelId = hotels.get(0).getIdHotel();
+        }
         model.addAttribute("hotels", hotels);
-        model.addAttribute("roomSearch", roomSearch); 
+        model.addAttribute("selectedHotelId", hotelId);
+        model.addAttribute("rooms", hotelId == null ? List.of() : roomService.findRoomsByHotelId(hotelId));
         return "room-list";
     }
 
-
-    @GetMapping("/delete/{id}")
-    public String deleteRoom(@PathVariable("id") int id) {
-        roomService.deleteRoom(id);
-        return "redirect:/room/list/1";
+    @PostMapping("/delete/{id}")
+    public String deleteRoom(@PathVariable("id") int id, RedirectAttributes redirect) {
+        int hotelId = roomService.deleteRoom(id);
+        redirect.addFlashAttribute("success", "Chambre supprimée.");
+        return "redirect:/room/list?hotelId=" + hotelId;
     }
 
     @GetMapping("/update/{id}")
     public String showUpdateRoomForm(@PathVariable("id") int id, Model model) {
-        Room existingRoom = roomService.findRoomById(id);
-        model.addAttribute("room", existingRoom);
+        Room room = roomService.getRoom(id);
+        model.addAttribute("room", roomService.toDto(room));
+        model.addAttribute("hotelName", room.getHotel().getName());
         return "update-room-form";
     }
 
     @PostMapping("/update/{id}")
-    public String updateRoom(@PathVariable("id") int id, @ModelAttribute("room") Room room) {
-        Room updatedRoom = roomService.findRoomById(id);
-        updatedRoom.setRoomNumber(room.getRoomNumber());
-        updatedRoom.setAvailability(room.getAvailability());
-        updatedRoom.setPrice(room.getPrice());
-        updatedRoom.setView(room.getView());
-        updatedRoom.setExtensible(room.getExtensible());
-        updatedRoom.setCapacity(room.getCapacity());
-        roomService.updateRoom(updatedRoom);
-        return "redirect:/room/list/1";
+    public String updateRoom(@PathVariable("id") int id, @Valid @ModelAttribute("room") CreateRoomDTO roomDTO,
+            BindingResult result, Model model, RedirectAttributes redirect) {
+        Room existing = roomService.getRoom(id);
+        roomDTO.setIdRoom(id);
+        roomDTO.setIdHotel(existing.getHotel().getIdHotel());
+        if (result.hasErrors()) {
+            model.addAttribute("hotelName", existing.getHotel().getName());
+            return "update-room-form";
+        }
+        roomService.updateRoom(id, roomDTO);
+        redirect.addFlashAttribute("success", "Chambre modifiée.");
+        return "redirect:/room/list?hotelId=" + roomDTO.getIdHotel();
     }
 
     @GetMapping("/add")
-    public String showAddRoomForm(Model model) {
-    
-        List<Hotel> hotels = hotelService.getHotels();
-        model.addAttribute("hotels", hotels);
-        model.addAttribute("room", new CreateRoomDTO());
-     
+    public String showAddRoomForm(@RequestParam(name = "hotelId", required = false) Integer hotelId, Model model) {
+        CreateRoomDTO room = new CreateRoomDTO();
+        room.setIdHotel(hotelId);
+        model.addAttribute("room", room);
+        model.addAttribute("hotels", hotelService.getHotels());
         return "add-room-form";
     }
 
     @PostMapping("/add")
-    public String addRoom(@ModelAttribute("room") CreateRoomDTO roomInfo) {
-        Room room = new Room();
-        Hotel hotel = hotelService.getHotel(roomInfo.getIdHotel());
-
-        room.setRoomNumber(roomInfo.getRoomNumber());
-        room.setAvailability(roomInfo.getAvailability());
-        room.setPrice(roomInfo.getPrice());
-        room.setView(roomInfo.getView());
-        room.setExtensible(roomInfo.getExtensible());
-        room.setCapacity(roomInfo.getCapacity());
-        room.setHotel(hotel);
-
-
-        roomService.saveRoom(room);
-
-
-        return "redirect:/room/list/1";
+    public String addRoom(@Valid @ModelAttribute("room") CreateRoomDTO roomDTO, BindingResult result,
+            Model model, RedirectAttributes redirect) {
+        if (result.hasErrors()) {
+            model.addAttribute("hotels", hotelService.getHotels());
+            return "add-room-form";
+        }
+        roomService.addRoom(roomDTO);
+        redirect.addFlashAttribute("success", "Chambre ajoutée.");
+        return "redirect:/room/list?hotelId=" + roomDTO.getIdHotel();
     }
 
+    private String searchForm(Model model) {
+        model.addAttribute("hotelChains", hotelChainService.getHotelChains());
+        model.addAttribute("cities", hotelService.getCities());
+        return "search";
+    }
 }

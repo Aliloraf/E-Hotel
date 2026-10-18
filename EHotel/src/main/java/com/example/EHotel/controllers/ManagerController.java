@@ -1,120 +1,93 @@
 package com.example.EHotel.controllers;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
+import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.EHotel.dtos.AddEmployeeDTO;
-import com.example.EHotel.model.employee.Employee;
-import com.example.EHotel.model.hotel.Hotel;
+import com.example.EHotel.exceptions.BusinessRuleException;
 import com.example.EHotel.services.EmployeeService;
 import com.example.EHotel.services.HotelService;
 
-import java.util.List;
-import org.springframework.ui.Model;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
+/** Manager area: employee management. */
 @Controller
 @RequestMapping("/manager")
+@RequiredArgsConstructor
 public class ManagerController {
 
-    @Autowired
-    private EmployeeService employeeService;
-    @Autowired
-    private HotelService hotelService;
+    private final EmployeeService employeeService;
+    private final HotelService hotelService;
 
-    @RequestMapping("")
+    @GetMapping("")
     public String showManagerHome() {
         return "manager";
     }
 
     @GetMapping("/employees")
-    public String showsEmployees(Model model) {
-        List<Employee> employees = employeeService.getEmployees();
-        model.addAttribute("employees", employees);
+    public String showEmployees(Model model) {
+        model.addAttribute("employees", employeeService.getEmployees());
         return "employees";
     }
 
     @GetMapping("/employee/add")
     public String showAddEmployeeForm(Model model) {
-        List<Hotel> hotels = hotelService.getHotels();
         model.addAttribute("employee", new AddEmployeeDTO());
-        model.addAttribute("hotels", hotels);
-        return "add-employee-form";
+        return employeeForm("add-employee-form", model);
     }
 
     @PostMapping("/employee/add")
-    public String addEmployee(@ModelAttribute("employee") AddEmployeeDTO employeeDTO) {
-        Employee newEmployee = new Employee();
-        Hotel hotel = hotelService.getHotel(employeeDTO.getIdHotel());
-
-        newEmployee.setSinEmployee(employeeDTO.getSinEmployee());
-        newEmployee.setFirstname(employeeDTO.getFirstname());
-        newEmployee.setLastname(employeeDTO.getLastname());
-        newEmployee.setHotel(hotel);
-        newEmployee.setRole(employeeDTO.getRole());
-        newEmployee.setStreetNumber(employeeDTO.getStreetNumber());
-        newEmployee.setStreetName(employeeDTO.getStreetName());
-        newEmployee.setCity(employeeDTO.getCity());
-        newEmployee.setPostalCode(employeeDTO.getPostalCode());
-        newEmployee.setCountry(employeeDTO.getCountry());
-
-        employeeService.addEmployee(newEmployee);
-
+    public String addEmployee(@Valid @ModelAttribute("employee") AddEmployeeDTO employeeDTO, BindingResult result,
+            Model model, RedirectAttributes redirect) {
+        if (result.hasErrors()) {
+            return employeeForm("add-employee-form", model);
+        }
+        try {
+            employeeService.addEmployee(employeeDTO);
+        } catch (BusinessRuleException e) {
+            result.rejectValue("sinEmployee", "duplicate", e.getMessage());
+            return employeeForm("add-employee-form", model);
+        }
+        redirect.addFlashAttribute("success", "Employé ajouté.");
         return "redirect:/manager/employees";
     }
 
-    @GetMapping("/employee/delete/{sinEmployee}")
-    public String deleteEmployee(@PathVariable("sinEmployee") String sinEmployee) {
+    @PostMapping("/employee/delete/{sinEmployee}")
+    public String deleteEmployee(@PathVariable("sinEmployee") String sinEmployee, RedirectAttributes redirect) {
         employeeService.deleteEmployee(sinEmployee);
+        redirect.addFlashAttribute("success", "Employé supprimé.");
         return "redirect:/manager/employees";
     }
 
     @GetMapping("/employee/update/{sinEmployee}")
     public String showUpdateEmployeeForm(@PathVariable("sinEmployee") String sinEmployee, Model model) {
-        Employee existingEmployee = employeeService.getEmployee(sinEmployee);
-        AddEmployeeDTO employeeDTO = new AddEmployeeDTO();
-
-        employeeDTO.setSinEmployee(existingEmployee.getSinEmployee());
-        employeeDTO.setFirstname(existingEmployee.getFirstname());
-        employeeDTO.setLastname(existingEmployee.getLastname());
-        employeeDTO.setIdHotel(existingEmployee.getHotel().getIdHotel());
-        employeeDTO.setRole(existingEmployee.getRole());
-        employeeDTO.setStreetNumber(existingEmployee.getStreetNumber());
-        employeeDTO.setStreetName(existingEmployee.getStreetName());
-        employeeDTO.setCity(existingEmployee.getCity());
-        employeeDTO.setPostalCode(existingEmployee.getPostalCode());
-        employeeDTO.setCountry(existingEmployee.getCountry());
-
-
-        List<Hotel> hotels = hotelService.getHotels();
-        model.addAttribute("employee", employeeDTO);
-        model.addAttribute("hotels", hotels);
-        return "update-employee-form";
+        model.addAttribute("employee", employeeService.toDto(employeeService.getEmployee(sinEmployee)));
+        return employeeForm("update-employee-form", model);
     }
 
     @PostMapping("/employee/update/{sinEmployee}")
-    public String updateEmployee(@PathVariable("sinEmployee") String sinEmployee, @ModelAttribute("employee") AddEmployeeDTO employeeDTO) {
-        Employee updatedEmployee = new Employee();
-        Hotel hotel = hotelService.getHotel(employeeDTO.getIdHotel());
-
-        updatedEmployee.setSinEmployee(employeeDTO.getSinEmployee());
-        updatedEmployee.setFirstname(employeeDTO.getFirstname());
-        updatedEmployee.setLastname(employeeDTO.getLastname());
-        updatedEmployee.setHotel(hotel);
-        updatedEmployee.setRole(employeeDTO.getRole());
-        updatedEmployee.setStreetNumber(employeeDTO.getStreetNumber());
-        updatedEmployee.setStreetName(employeeDTO.getStreetName());
-        updatedEmployee.setCity(employeeDTO.getCity());
-        updatedEmployee.setPostalCode(employeeDTO.getPostalCode());
-        updatedEmployee.setCountry(employeeDTO.getCountry());
-
-        employeeService.updateEmployee(updatedEmployee);
-
+    public String updateEmployee(@PathVariable("sinEmployee") String sinEmployee,
+            @Valid @ModelAttribute("employee") AddEmployeeDTO employeeDTO, BindingResult result,
+            Model model, RedirectAttributes redirect) {
+        employeeDTO.setSinEmployee(sinEmployee); // the SIN is the primary key and cannot be changed
+        if (result.hasErrors()) {
+            return employeeForm("update-employee-form", model);
+        }
+        employeeService.updateEmployee(sinEmployee, employeeDTO);
+        redirect.addFlashAttribute("success", "Employé modifié.");
         return "redirect:/manager/employees";
     }
-    
+
+    private String employeeForm(String view, Model model) {
+        model.addAttribute("hotels", hotelService.getHotels());
+        return view;
+    }
 }

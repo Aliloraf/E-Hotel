@@ -1,26 +1,29 @@
 package com.example.EHotel.services;
 
-import org.springframework.beans.factory.annotation.Autowired;
+import java.util.List;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import com.example.EHotel.exceptions.ResourceNotFoundException;
+import com.example.EHotel.model.hotelchain.HotelChain;
 import com.example.EHotel.repositories.hotelchain.HotelChainRepository;
 
-import jakarta.transaction.Transactional;
-import com.example.EHotel.model.hotelchain.HotelChain;
-import java.util.List;
+import lombok.RequiredArgsConstructor;
 
 @Service
-@Transactional
+@Transactional(readOnly = true)
+@RequiredArgsConstructor
 public class HotelChainService {
-    
-    @Autowired
-    private HotelChainRepository hotelChainRepository;
+
+    private final HotelChainRepository hotelChainRepository;
 
     public List<HotelChain> getHotelChains() {
-        return hotelChainRepository.findAll();
+        return hotelChainRepository.findAll(Sort.by("name"));
     }
 
     public HotelChain getHotelChain(int id) {
-        return hotelChainRepository.findById(id).orElse(null);
+        return hotelChainRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Chaîne hôtelière introuvable : " + id));
     }
 }
